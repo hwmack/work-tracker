@@ -1,6 +1,6 @@
 # Work CLI
 
-A cli utility to track time spent working. It keeps local a local history of the time and dates that you worked uses that to create a timesheet in Xero.
+A cli utility to track time spent working. It keeps local a local history of the time and dates that you worked uses that to create a timesheet in Xero(Unfortunately may not be possible).
 
 ## Flags
 ```bash

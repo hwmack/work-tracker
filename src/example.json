@@ -1,0 +1,17 @@
+{
+    "version": "0.1.0",
+    "state": "tracking|stopped|paused",
+    "times": [
+        {
+            "start": "time-here",
+            "end": "time-here"
+        }
+    ],
+    "past": [
+        {
+            "date": "",
+            "hours": "",
+            "comment": ""
+        }
+    ]
+}
