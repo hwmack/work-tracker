@@ -1,6 +1,8 @@
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
+use std::fmt;
 
+use colored::Colorize;
 use chrono::prelude::*;
 use chrono::serde::ts_seconds;
 use chrono::Duration;
@@ -17,7 +19,10 @@ enum Args {
     Start,
 
     #[structopt(name = "stop", about = "Stop tracking, and finish the current shift")]
-    Stop { comment: String },
+    Stop {
+        #[structopt(default_value = "")]
+        comment: String
+    },
 
     #[structopt(name = "pause", about = "Pause tracking")]
     Pause,
@@ -29,10 +34,19 @@ enum Args {
     Display {
         #[structopt(default_value = "0")]
         week: i64,
+
+        #[structopt(short, long)]
+        absolute: bool,
     },
 
     #[structopt(name = "edit", about = "Edit raw time details if needed")]
-    Edit,
+    Edit {
+        #[structopt(default_value = "0")]
+        week: i64,
+
+        #[structopt(short, long)]
+        absolute: bool,
+    },
 }
 
 ///Possible time tracking states we could be in
@@ -42,6 +56,18 @@ enum TrackingState {
     Tracking = 1,
     Stopped = 2,
     Paused = 3,
+}
+
+///Implement the display trait for the TrackingState enum
+impl fmt::Display for TrackingState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let result = match self {
+            TrackingState::Tracking => "tracking",
+            TrackingState::Stopped => "stopped",
+            TrackingState::Paused => "paused"
+        };
+        write!(f, "{}", result)
+    }
 }
 
 ///Represents a block of time (possibly unfinished)
@@ -144,6 +170,8 @@ fn start(data: &mut FileFormat) {
         end: Utc::now(),
     };
 
+    println!("Started timer at {}", current_block.start.to_rfc2822().blue());
+
     data.times.push(current_block);
 
     // Lastly set the state to tracking
@@ -177,7 +205,7 @@ fn stop(data: &mut FileFormat, comment: String) {
     data.times = Vec::new();
     data.state = TrackingState::Stopped;
 
-    println!("Finished shift: {}", format_time(shift_time));
+    println!("Finished shift after {}", format_time(shift_time).blue());
 }
 
 ///Temporarily pause tracking time
@@ -195,7 +223,7 @@ fn pause(data: &mut FileFormat) {
 
 ///Check the current status
 fn status(data: &mut FileFormat) {
-    println!("status: {:?}\n", data.state);
+    println!("status: {}", data.state);
 
     // Display the current shift length if not stopped
     if data.state != TrackingState::Stopped {
@@ -206,7 +234,7 @@ fn status(data: &mut FileFormat) {
         }
 
         let shift_time = calculate_shift_length(&data.times);
-        println!("timer: {}", format_time(shift_time));
+        println!("timer: {}", format_time(shift_time).blue());
     }
 }
 
@@ -216,31 +244,21 @@ fn status(data: &mut FileFormat) {
 /// 0: current week
 /// 1-52: absolute week of the current year
 /// -(1-52): relative week of the current week
-fn display(week: i64, data: &mut FileFormat) {
+fn display(week: i64, absolute: bool, data: &mut FileFormat) {
     // find the week specified
-    let mut week_date = if week > 0 {
-        // Week from the start of the year
-        todo!();
-    } else {
-        // Finds the Sunday at the beginning of the relative week
-        let mut temp_week = (Utc::now() - Duration::weeks(week * -1)).date();
-        while temp_week.weekday() != Weekday::Sun {
-            temp_week = temp_week.pred();
-        }
-        temp_week
-    };
+    let mut week = get_week(week, absolute);
 
-    println!("Week {} (date: {})", week, week_date);
+    println!("Week starting at {})", week);
     println!();
 
     // Attempt to find data for each day of the week
     // Stopping once the next day will be the next Sunday
-    while week_date.succ().weekday() != Weekday::Sun {
+    while week.succ().weekday() != Weekday::Sun {
         let mut shifts = Vec::new();
 
         // Find any matching blocks and add to shifts
         for past_block in &data.past {
-            if past_block.date.date() == week_date {
+            if past_block.date.date() == week {
                 shifts.push(past_block);
             }
         }
@@ -251,30 +269,56 @@ fn display(week: i64, data: &mut FileFormat) {
         });
 
         // Display the results of the search
-        println!("{:?}:", week_date.weekday());
+        println!("{:?}:", week.weekday());
 
-        week_date = week_date.succ();
+        week = week.succ();
 
         if shifts.len() == 0 {
-            println!("  No shifts\n");
+            println!("  {}\n", "No shifts".red());
             continue;
         }
 
         for shift in shifts {
             println!("  {}: {}", 
-                format_time(Duration::seconds(shift.seconds)),
+                format_time(Duration::seconds(shift.seconds)).blue(),
                 shift.comment
                 );
         }
-        println!("  (total={})", format_time(sum));
-        println!();
+        println!("{}\n", format!("{:2}(total={})", "", format_time(sum).blue()));
     }
 }
 
 ///Edit some dates in the file
 ///Should not be used but provided because accidents happen
-fn edit() {
-    todo!();
+fn edit(_week: i64, _absolute: bool) {
+    // Find the week that is specified as an argument
+
+    // Give each shift of each day a id
+
+    // Allow the user to specify
+    // Then the user can edit the comment or length of time
+    // Or delete it
+
+    eprintln!("{}", "Not implemented yet".red());
+    std::process::exit(1);
+}
+
+fn get_week(week: i64, absolute: bool) -> Date<Utc> {
+    // Find the week specified by the int
+    let mut week_day = if absolute {
+        // Get the start of the year + the week specified
+        Utc.ymd(Utc::now().year(), 1, 1) + Duration::weeks(week)
+    } else {
+        // Take the weeks from the current time
+        (Utc::now() - Duration::weeks(week)).date()
+    };
+
+    // Find the Sunday of the week
+    while week_day.weekday() != Weekday::Sun {
+        week_day = week_day.pred();
+    }
+
+    week_day
 }
 
 ///Update the most recent time block to the current time
@@ -289,7 +333,8 @@ fn calculate_shift_length(times: &Vec<TimeBlock>) -> Duration {
     // Add up all the times
     let mut time_sum = Duration::seconds(0);
     for block in times {
-        time_sum = time_sum + Duration::seconds(block.end.timestamp() - block.start.timestamp());
+        time_sum = time_sum +
+            Duration::seconds(block.end.timestamp() - block.start.timestamp());
     }
 
     // Return the duration
@@ -299,7 +344,7 @@ fn calculate_shift_length(times: &Vec<TimeBlock>) -> Duration {
 fn format_time(dur: Duration) -> String {
     let h = dur.num_hours();
     let m = dur.num_minutes() - (h * 60);
-    let s = dur.num_seconds() - (m * 60) - (h * 60);
+    let s = dur.num_seconds() - (m * 60) - (h * 60 * 60);
 
     let hours = if h < 10 {
         format!("0{}", h)
@@ -319,7 +364,7 @@ fn format_time(dur: Duration) -> String {
         format!("{}", s)
     };
 
-    format!("{}:{}:{}", hours, minutes, seconds)
+    format!("{}:{}:{}", hours.green(), minutes.cyan(), seconds.magenta())
 }
 
 ///Main entry point of the cli
@@ -336,10 +381,11 @@ fn main() {
         Args::Stop { comment } => stop(&mut data, comment),
         Args::Pause => pause(&mut data),
         Args::Status => status(&mut data),
-        Args::Display { week } => display(week, &mut data),
-        Args::Edit => edit(),
+        Args::Display { week, absolute } => display(week, absolute, &mut data),
+        Args::Edit { week, absolute } => edit(week, absolute),
     }
 
     // After we manipulate the data structure -> write it back to the file
     write_file(file, data);
 }
+
