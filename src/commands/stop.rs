@@ -25,7 +25,8 @@ pub fn stop(data: &mut FileFormat, comment: String) {
     data.past.push(PastTimeBlock {
         date: time_block.start, // Set the date to when the shift was started
         seconds: shift_time.num_seconds(),
-        comment: comment,
+        finished_tasks: vec![],
+        comment,
     });
 
     // Reset the times vec

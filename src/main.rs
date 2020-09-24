@@ -11,6 +11,7 @@ use commands::stop::*;
 use commands::status::*;
 use commands::display::*;
 use commands::edit::*;
+use commands::tasks::*;
 
 ///Arguments for the command line application
 #[derive(Debug, StructOpt)]
@@ -48,6 +49,9 @@ enum Args {
         #[structopt(short, long)]
         absolute: bool,
     },
+
+    #[structopt(name = "task", about = "Manage tasks")]
+    Task(TaskOptions),
 }
 
 ///Main entry point of the cli
@@ -66,6 +70,7 @@ fn main() {
         Args::Status => status(&mut data),
         Args::Display { week, absolute } => display(week, absolute, &mut data),
         Args::Edit { week, absolute } => edit(week, absolute, &mut data),
+        Args::Task(opt) => println!("{:?}", opt),
     }
 
     // After we manipulate the data structure -> write it back to the file

@@ -37,6 +37,8 @@ pub struct TimeBlock {
 
     #[serde(with = "ts_seconds")]
     pub end: DateTime<Utc>,
+
+    pub finished_tasks: Vec<String>,
 }
 
 ///Where all TimeBlocks are stored after running the `stop` command
@@ -46,6 +48,7 @@ pub struct PastTimeBlock {
     pub date: DateTime<Utc>,
     pub seconds: i64,
     pub comment: String,
+    pub finished_tasks: Vec<String>
 }
 
 ///Format of the file to read to and from RMP
@@ -53,6 +56,7 @@ pub struct PastTimeBlock {
 pub struct FileFormat {
     pub version: String,
     pub state: TrackingState,
+    pub tasks: Vec<String>,
     pub times: Vec<TimeBlock>,
     pub past: Vec<PastTimeBlock>,
 }
@@ -110,6 +114,7 @@ pub fn read_file(file: &mut File) -> FileFormat {
         Err(_) => FileFormat {
             version: env!("CARGO_PKG_VERSION").into(),
             state: TrackingState::Stopped,
+            tasks: vec![],
             times: Vec::new(),
             past: Vec::new(),
         },
@@ -130,5 +135,5 @@ pub fn write_file(mut file: File, data: FileFormat) {
     let len = file.write(&buffer).expect("Failed to write data to file");
 
     // Assert expected amount was written to file
-    assert!(len == buffer.len())
+    assert_eq!(len, buffer.len())
 }

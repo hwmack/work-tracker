@@ -4,3 +4,4 @@ pub mod pause;
 pub mod start;
 pub mod status;
 pub mod stop;
+pub mod tasks;

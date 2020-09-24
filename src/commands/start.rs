@@ -19,6 +19,7 @@ pub fn start(data: &mut format::FileFormat) {
     let current_block = format::TimeBlock {
         start: Utc::now(),
         end: Utc::now(),
+        finished_tasks: vec![],
     };
 
     let local: DateTime<Local> = DateTime::from(current_block.start);
